@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block page_header %}
+<div class="bg-light border-bottom">
+  <div class="container py-5">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <h1 class="display-4 fw-bold mb-3">
+          <i class="bi bi-journal-text text-primary me-2"></i>Welcome to FastAPI Blog
+        </h1>
+        <p class="lead text-body-secondary mb-0">
+          Discover stories, thinking, and expertise from writers on any topic
+        </p>
+      </div>
+      <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <a href="#" class="btn btn-primary btn-lg">
+          <i class="bi bi-plus-lg me-2"></i>Write a Post
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock page_header %}
+
+{% block content %}
+  <div class="mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="h4 mb-0">
+        <i class="bi bi-fire text-danger me-2"></i>Recent Posts
+      </h2>
+      <div class="btn-group" role="group" aria-label="Filter posts">
+        <button type="button" class="btn btn-sm btn-outline-secondary active">All</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary">Popular</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary">Trending</button>
+      </div>
+    </div>
+
+    {% for post in posts %}
+      <article class="content-section p-4 mb-4">
+        <div class="d-flex align-items-start gap-3">
+          <img class="rounded-circle article-img flex-shrink-0"
+               src="/static/profile_pics/default.jpg"
+               alt="{{ post.author }}'s profile picture"
+               width="64"
+               height="64"
+               loading="lazy">
+          <div class="flex-grow-1">
+            <div class="article-metadata mb-3 pb-2">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
+                <a class="fw-semibold text-decoration-none" href="{{ url_for('post', post_id=post.id) }}">
+                  <i class="bi bi-person-circle me-1"></i>{{ post.author }}
+                </a>
+                <span class="text-body-secondary">•</span>
+                <small class="text-body-secondary">
+                  <i class="bi bi-clock me-1"></i>{{ post.created_at.strftime('%B %d, %Y') }}
+                </small>
+                {% if post.updated_at %}
+                  <span class="badge bg-info bg-opacity-10 text-info">
+                    <i class="bi bi-pencil-square me-1"></i>Updated
+                  </span>
+                {% endif %}
+              </div>
+            </div>
+            <h2 class="h3 mb-3">
+              <a class="article-title text-decoration-none" href="{{ url_for('post', post_id=post.id) }}">{{ post.title }}</a>
+            </h2>
+            {% if post.content %}
+              <p class="article-content text-body-secondary mb-3">{{ post.content }}</p>
+            {% else %}
+              <p class="article-content text-body-secondary fst-italic mb-3">No content available for this post yet.</p>
+            {% endif %}
+            <div class="d-flex gap-2 align-items-center">
+              <a href="{{ url_for('post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-book me-1"></i>Read More
+              </a>
+              <button class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-heart me-1"></i>Like
+              </button>
+              <button class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-chat-left-text me-1"></i>Comment
+              </button>
+              <button class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-share me-1"></i>Share
+              </button>
+            </div>
+          </div>
+        </div>
+      </article>
+    {% endfor %}
+
+    <!-- Pagination -->
+    <nav aria-label="Blog posts pagination" class="mt-4">
+      <ul class="pagination justify-content-center">
+        <li class="page-item disabled">
+          <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+            <i class="bi bi-chevron-left me-1"></i>Previous
+          </a>
+        </li>
+        <li class="page-item active" aria-current="page">
+          <a class="page-link" href="#">1</a>
+        </li>
+        <li class="page-item"><a class="page-link" href="#">2</a></li>
+        <li class="page-item"><a class="page-link" href="#">3</a></li>
+        <li class="page-item">
+          <a class="page-link" href="#">
+            Next<i class="bi bi-chevron-right ms-1"></i>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+{% endblock content %}

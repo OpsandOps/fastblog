@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block page_header %}
+<div class="bg-light border-bottom">
+  <div class="container py-5">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <nav aria-label="breadcrumb" class="mb-2">
+          <ol class="breadcrumb mb-0">
+            <li class="breadcrumb-item">
+              <a href="{{ url_for('home') }}" class="text-decoration-none">
+                <i class="bi bi-house-door-fill me-1"></i>Home
+              </a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">Error</li>
+          </ol>
+        </nav>
+        <h1 class="display-5 fw-bold mb-2">
+          <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+          {{ status_code or "Error" }}
+        </h1>
+        <p class="lead text-body-secondary mb-0">Something went wrong</p>
+      </div>
+      <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+        <a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-arrow-left me-1"></i>Back to Home
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock page_header %}
+
+{% block content %}
+<div class="mt-4">
+  <div class="content-section p-5 text-center mb-4">
+
+    <!-- Error Icon -->
+    <div class="mb-4">
+      {% if status_code == 404 %}
+        <i class="bi bi-search display-1 text-body-secondary opacity-50"></i>
+      {% elif status_code == 403 %}
+        <i class="bi bi-shield-lock-fill display-1 text-warning opacity-75"></i>
+      {% elif status_code == 500 %}
+        <i class="bi bi-bug-fill display-1 text-danger opacity-75"></i>
+      {% else %}
+        <i class="bi bi-exclamation-circle-fill display-1 text-warning opacity-75"></i>
+      {% endif %}
+    </div>
+
+    <!-- Error Code -->
+    <h2 class="display-4 fw-bold mb-2">
+      {{ status_code or "Oops" }}
+    </h2>
+
+    <!-- Error Title -->
+    <h3 class="h4 text-body-secondary fw-normal mb-3">
+      {% if status_code == 404 %}
+        Page Not Found
+      {% elif status_code == 403 %}
+        Access Forbidden
+      {% elif status_code == 422 %}
+        Unprocessable Request
+      {% elif status_code == 500 %}
+        Internal Server Error
+      {% else %}
+        Something Went Wrong
+      {% endif %}
+    </h3>
+
+    <!-- Error Detail Message -->
+    <p class="text-body-secondary mb-4" style="max-width: 480px; margin-inline: auto;">
+      {% if detail %}
+        {{ detail }}
+      {% elif status_code == 404 %}
+        The page you're looking for doesn't exist or may have been moved.
+      {% elif status_code == 403 %}
+        You don't have permission to access this resource.
+      {% elif status_code == 422 %}
+        The request could not be processed. Please check your input and try again.
+      {% elif status_code == 500 %}
+        An unexpected error occurred on our end. Please try again later.
+      {% else %}
+        An unexpected error occurred. Please try again or return to the home page.
+      {% endif %}
+    </p>
+
+    <!-- Actions -->
+    <div class="d-flex gap-3 justify-content-center flex-wrap">
+      <a href="{{ url_for('home') }}" class="btn btn-primary">
+        <i class="bi bi-house-door-fill me-2"></i>Go Home
+      </a>
+      <button onclick="history.back()" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Go Back
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Help Section -->
+  <div class="content-section p-4 mb-4">
+    <h4 class="h6 text-body-secondary text-uppercase fw-semibold mb-3">
+      <i class="bi bi-lightbulb-fill text-warning me-2"></i>What can you do?
+    </h4>
+    <ul class="list-unstyled mb-0 d-flex flex-column gap-2">
+      <li class="d-flex align-items-start gap-2">
+        <i class="bi bi-check-circle-fill text-success mt-1 flex-shrink-0"></i>
+        <span>Double-check the URL in your browser's address bar.</span>
+      </li>
+      <li class="d-flex align-items-start gap-2">
+        <i class="bi bi-check-circle-fill text-success mt-1 flex-shrink-0"></i>
+        <span>Return to the <a href="{{ url_for('home') }}">home page</a> and browse from there.</span>
+      </li>
+      <li class="d-flex align-items-start gap-2">
+        <i class="bi bi-check-circle-fill text-success mt-1 flex-shrink-0"></i>
+        <span>If you believe this is a mistake, please contact the site administrator.</span>
+      </li>
+    </ul>
+  </div>
+
+</div>
+{% endblock content %}
