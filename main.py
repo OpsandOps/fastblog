@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONReponse
+from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from starlette.exceptions import HTTPException as StarletteHTTPExecution 
+from starlette.exceptions import HTTPException as StarletteHTTPException 
 from datetime import datetime
 
 app = FastAPI()
@@ -61,10 +61,10 @@ async def generic_exception_handler(request: Request, exc: Exception):
 
 
 # catching exceptions with starlette
-@app.exception_handler(StarletteHTTPExxception)
+@app.exception_handler(StarletteHTTPException)
 def general_http_exception_handler(request: Request, exception: StarletteHTTPException):
-    # 1. handle starlette exception without a detail
-    message (
+    # 1. handle starlette exception with and without a detail
+    message = (
         exception.detail 
         if exception.detail
         else "An error occured. Please Check your request and try again."
@@ -73,7 +73,7 @@ def general_http_exception_handler(request: Request, exception: StarletteHTTPExc
     # 2. check the route,to match else return JSON response
 
     if request.url.path.startswith("/api"):
-        return JSONRepsonse(
+        return JSONResponse(
             status_code=exception.status_code,
             content={"detail": message},
         )
@@ -89,6 +89,26 @@ def general_http_exception_handler(request: Request, exception: StarletteHTTPExc
         },
         status_code=exception.status_code,
     )
+
+# Validation error handler 
+@app.exception_handler(RequestValidationError)
+def validation_exception_handler(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith("api"):
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={'detail': exception.errors()}
+        )
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {
+            "status_code": status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "title": status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "message": "Invalid request. Please check your input and try again"
+        },
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+    )
+
 
 @app.get("/", include_in_schema=False, name="home")
 @app.get("/posts", include_in_schema=False, name="posts")
@@ -123,3 +143,11 @@ def get_posts(post_id: int) -> dict:
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", reload=True)
+
+
+
+
+
+
+
+
