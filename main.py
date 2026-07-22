@@ -5,41 +5,42 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException 
 from datetime import datetime
+from schemas import PostCreate, PostResponse
 
 app = FastAPI()
 
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static") 
 
-post: list[dict] = [
+post_list: list[dict] = [
     {   
         "id": 1,
         "author": "Julien Nagelsman",
         "title": "Home away from home",
         "content": "This is a serial novel written by a very good author about a Home away from home this is to add some content to the blog",
-        "created_at": datetime.now(),
-        "updated_at": ""
+        "created_at": "15th July 2026",
+        "updated_at": "today"
     },
     {   
         "id": 2,
         "author": "Prospa  Ops",
         "title": "God is Good",
         "content": "A devotional written by the author for daily study and religious content built with fastapi",
-        "created_at": datetime.now(),
-        "updated_at": " "
+        "created_at": "20th July 2026",
+        "updated_at": "today"
     },
     {
         "id": 3,
         "author": "Damelson Vincent",
         "title": "Power over Fear",
         "content": "The chronicle of a developer who never writes but read and debugs, I dont even know what that means here",
-        "created_at": datetime.now(),
-        "updated_at": datetime.now()
+        "created_at": "22nd July 2026",
+        "updated_at": "today"
     }
 
 ]
 
-
+# ========HTTP EXCEPTION HANDLER===============================
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return templates.TemplateResponse(
@@ -50,6 +51,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     )
 
 
+#===========GENERIC HTTP EXCEPTION HANDLER==error 500===========
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
     return templates.TemplateResponse(
@@ -59,8 +61,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
         status_code=500,
     )
 
-
-# catching exceptions with starlette
+#==========GENERAL HTTP EXCEPTION HANDLER FOR STARLETTE================
 @app.exception_handler(StarletteHTTPException)
 def general_http_exception_handler(request: Request, exception: StarletteHTTPException):
     # 1. handle starlette exception with and without a detail
@@ -90,10 +91,10 @@ def general_http_exception_handler(request: Request, exception: StarletteHTTPExc
         status_code=exception.status_code,
     )
 
-# Validation error handler 
+# ============VALIDATION EXCEPTION HANDLER FOR STARLETTE===========================
 @app.exception_handler(RequestValidationError)
-def validation_exception_handler(request: Request, exc: RequestValidationError):
-    if request.url.path.startswith("api"):
+def validation_exception_handler(request: Request, exception: RequestValidationError):
+    if request.url.path.startswith("/api"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={'detail': exception.errors()}
@@ -110,19 +111,20 @@ def validation_exception_handler(request: Request, exc: RequestValidationError):
     )
 
 
+# ============GET ROUTE============BROWSEABLE ROUTES (NOT IN SCHEMA)=============
 @app.get("/", include_in_schema=False, name="home")
 @app.get("/posts", include_in_schema=False, name="posts")
 def home(request: Request):
     return templates.TemplateResponse(
         request,
         "home.html",
-        {"posts": post, "title": "Home"})
+        {"posts": post_list, "title": "Home"})
 
 
-
+# ========GET ROUTE====BROWSABLE ROUTES(NOT IN SCHEMA)================
 @app.get("/posts/{post_id}", include_in_schema=False, name="post")
 def get_post_pages(post_id: int, request: Request):
-    for p in post:
+    for p in post_list:
         if p.get("id") == post_id:
             return templates.TemplateResponse(
                 request, 
@@ -131,13 +133,44 @@ def get_post_pages(post_id: int, request: Request):
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not Found")
 
 
-
-@app.get("/api/posts/{post_id}")
+# ================API ROUTES(NOT BROWSABLE)==================
+@app.get("/api/posts/{post_id}", response_model=PostResponse)
 def get_posts(post_id: int) -> dict:
-    for posts in post:
-        if posts.get("id") == post_id:
-            return posts
+    for post_item in post_list:
+        if post_item.get("id") == post_id:
+            return post_list['content']
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not Found")
+
+
+# =================GET API ROUTE(NOT BROWSEABLE)===================
+@app.get("/api/all_posts", response_model=list[PostResponse])
+def get_all_posts() -> list:
+    return post_list
+
+# ================POST API ROUTES(NOT BROWSABLE)====================
+@app.post(
+    "/api/posts",
+    response_model=PostResponse,
+    status_code=status.HTTP_201_CREATED,
+
+)
+def create_post(new_post: PostCreate):
+    new_id = max(p["id"] for p in post_list) + 1 if post_list else 1 # teneray conditonal expression
+    created_post = {
+        "id": new_id,
+        "author": new_post.author,
+        "title": new_post.title,
+        "content": new_post.content,
+        "created_at": new_post.created_at,
+        "updated_at": " "
+    }
+    post_list.append(created_post)
+    return created_post 
+
+
+
+
+
 
 
 if __name__ == "__main__":
