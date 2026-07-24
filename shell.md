@@ -25,15 +25,17 @@ valid_data = UserCreate(username="john", email="john@test.com")
 *creates a result.ChunkedIteratorResult in memory, retuens a list, in Django a Queryset*
 ```bash
 >>> result = db.execute(select(User).where(User.username == "john"))
-```
+
 *returns the model object as a list, in django a dictionary of the first row that matches the where SQL filter username == "john"*
-```bash
+
 my_user = result.scalars().first()
+
 *[optional] convert to dictionary the fastapi way*
->>>  Convert it to a dictionary using your Pydantic schema!
->>> user_dict = UserResponse.model_validate(my_user).model_dump()
->>>  or simply use the __dict__() method on my_user
-  my_user.username
+# you can convert to a dictionary using your Pydantic schema! like this 
+user_dict = UserResponse.model_validate(my_user).model_dump()
+# or simply use the __dict__() method on my_user
+
+>>> my_user.username
 'john'
 >>> my_user.__dict__
 

@@ -53,4 +53,4 @@ class Post(Base):
     author: Mapped[User] = relationship(back_populates="posts")
 
     def __repr__(self):
-        return f"<Post id: '{self.id} 'Post title: '{self.title}' Post content: '{self.conten}'>"
+        return f"<Post id: '{self.id} 'Post title: '{self.title}' Post content: '{self.content}'>"
