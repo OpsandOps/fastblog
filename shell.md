@@ -7,7 +7,7 @@
 ```bash
 user_data = UserCreate(username="john", email="bad_email")
 ``` 
-# (This will throw a validation error because email is invalid)
+*This will throw a validation error because email is invalid*
 
 ```bash 
 valid_data = UserCreate(username="john", email="john@test.com")
@@ -26,7 +26,7 @@ valid_data = UserCreate(username="john", email="john@test.com")
 ```bash
 >>> result = db.execute(select(User).where(User.username == "john"))
 ```
-*returns the model object as a list, in django a dictionary of the first row that matches the where SQL filter username == "john" *
+*returns the model object as a list, in django a dictionary of the first row that matches the where SQL filter username == "john"*
 ```bash
 my_user = result.scalars().first()
 *[optional] convert to dictionary the fastapi way*
@@ -125,4 +125,5 @@ Second Post
 Post: Hello FastAPI | By: john
 Post: Second Post | By: john
 ```
->>> exit()
+*exit shell*
+``` exit() ```
