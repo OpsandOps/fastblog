@@ -36,10 +36,9 @@ my_user = result.scalars().first()
   my_user.username
 'john'
 >>> my_user.__dict__
-```
 
-## We manually pass user_id here. Later, this comes from the logged-in session
-```bash
+#We manually pass user_id here. Later, this comes from the logged-in session
+
 >>> new_post = Post(title="Hello FastAPI", content="SQLAlchemy is tricky but powerful", user_id=my_user.id)
 >>> db.add(new_post)
 >>> db.commit()
