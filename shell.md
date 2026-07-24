@@ -4,31 +4,42 @@
 
 2: in shell, do the following
 ### 1. Test Pydantic Validation (like Django forms)
->>> user_data = UserCreate(username="john", email="bad_email") 
+```bash
+user_data = UserCreate(username="john", email="bad_email")
+``` 
 # (This will throw a validation error because email is invalid)
 
->>> valid_data = UserCreate(username="john", email="john@test.com")
+```bash 
+valid_data = UserCreate(username="john", email="john@test.com")
+```
 
 # 2. Test the ORM Create pattern
+```bash
 >>> new_user = User(username=valid_data.username, email=valid_data.email)
 >>> db.add(new_user)
 >>> db.commit()
 >>> db.refresh(new_user)
+```
 
 # 3. Test the ORM Read pattern
 *creates a result.ChunkedIteratorResult in memory, retuens a list, in Django a Queryset*
+```bash
 >>> result = db.execute(select(User).where(User.username == "john"))
+```
 *returns the model object as a list, in django a dictionary of the first row that matches the where SQL filter username == "john" *
->>> my_user = result.scalars().first()
+```bash
+my_user = result.scalars().first()
 *[optional] convert to dictionary the fastapi way*
->>># Convert it to a dictionary using your Pydantic schema!
-user_dict = UserResponse.model_validate(my_user).model_dump()
->>># or simply use the __dict__() method on my_user
->>> my_user.username
+>>>  Convert it to a dictionary using your Pydantic schema!
+>>> user_dict = UserResponse.model_validate(my_user).model_dump()
+>>>  or simply use the __dict__() method on my_user
+  my_user.username
 'john'
 >>> my_user.__dict__
+```
 
-# We manually pass user_id here. Later, this comes from the logged-in session
+## We manually pass user_id here. Later, this comes from the logged-in session
+```bash
 >>> new_post = Post(title="Hello FastAPI", content="SQLAlchemy is tricky but powerful", user_id=my_user.id)
 >>> db.add(new_post)
 >>> db.commit()
@@ -113,5 +124,5 @@ Second Post
 ...
 Post: Hello FastAPI | By: john
 Post: Second Post | By: john
-
+```
 >>> exit()
