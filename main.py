@@ -11,7 +11,7 @@ from schemas import PostCreate, PostResponse, UserCreate, UserResponse
 # ===========db imports ================
 from typing import Annotated
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import Depends
 from database import Base, engine, get_db
@@ -233,7 +233,7 @@ def get_post(post_id: int, db: Annotated[Session, Depends(get_db)]):
 @app.get("/api/all_posts", response_model=list[PostResponse])
 def get_all_posts(db: Annotated[Session, Depends(get_db)]):
     #1. Query the db for all post
-    result = db.execute(select(models.Post))
+    result = db.execute(select(models.Post).options(selectinload(models.Post.author)))
     #2. serialise/extract post
     all_post = result.scalars().all()
     #3. return post
