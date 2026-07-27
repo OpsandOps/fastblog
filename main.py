@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, HTTPException, status
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import RequestValidationError, ResponseValidationError 
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -12,11 +12,18 @@ from schemas import PostCreate, PostResponse, UserCreate, UserResponse
 from typing import Annotated
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import Depends
 from database import Base, engine, get_db
 
 # ============model imports ===============
 import models
+
+# ============import logging to log cleanly ==========
+import logging
+
+# ===create a logger instance=====
+logger = logging.getLogger(__name__)
 
 
 # =======create database tables on app startup if not exist ======
@@ -63,6 +70,14 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # ========HTTP EXCEPTION HANDLER===============================
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    logger.error(f"Unhandled Exception on {request.url.path}: {str(exc)}", exc_info=True)
+
+    if request.url.path.startswith("/api"):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+
     return templates.TemplateResponse(
         request,
         "error.html",
@@ -74,6 +89,14 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 #===========GENERIC HTTP EXCEPTION HANDLER==error 500===========
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled Exception on {request.url.path}: {str(exc)}", exc_info=True)
+
+    if request.url.path.startswith("/api"):
+        return JSONResponse (
+            status_code=500,
+            content={"detail": "not found"}
+        )
+        
     return templates.TemplateResponse(
         request,
         "error.html",
@@ -113,7 +136,7 @@ def general_http_exception_handler(request: Request, exception: StarletteHTTPExc
 
 # ============VALIDATION EXCEPTION HANDLER FOR STARLETTE===========================
 @app.exception_handler(RequestValidationError)
-def validation_exception_handler(request: Request, exception: RequestValidationError):
+def request_validation_exception_handler(request: Request, exception: RequestValidationError):
     if request.url.path.startswith("/api"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -130,8 +153,26 @@ def validation_exception_handler(request: Request, exception: RequestValidationE
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
     )
 
+@app.exception_handler(ResponseValidationError)
+async def response_validation_exception_handler(request: Request, exc: ResponseValidationError):
+    logger.error(f"Response Validation Error on {request.url.path}: {str(exc.errors())}", exc_info=True)
+    
+    if request.url.path.startswith("/api"):
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            # Don't leak internal schema errors to the user
+            content={"detail": "Server error: Failed to format response data"} 
+        )
+        
+    return templates.TemplateResponse(
+        request,
+        "error.html",
+        {"status_code": 500, "detail": None, "title": "Server Error"},
+        status_code=500,
+    )
+
 # =======POST ROUTES ====================
-# ====GET=========== BROWSEABLE ROUTES (NOT IN SCHEMA)=============
+# ====GET=========== BROWSABLE ROUTES (NOT IN SCHEMA)=============
 @app.get("/", include_in_schema=False, name="home")
 @app.get("/posts", include_in_schema=False, name="posts")
 def home(request: Request, db: Annotated[Session, Depends(get_db)]):
@@ -144,14 +185,18 @@ def home(request: Request, db: Annotated[Session, Depends(get_db)]):
         {"posts": post})
 
 
-# ========GET ROUTE====BROWSABLE ROUTES(NOT IN SCHEMA)================
+# ========GET ROUTE WITH POST ID====BROWSABLE ROUTES(NOT IN SCHEMA)================
 @app.get("/posts/{post_id}", include_in_schema=False, name="post")
 def get_post_pages(post_id: int, request: Request, db: Annotated[Session, Depends(get_db)]):
     #1. Query the db for a post matching the post_id
     result = db.execute(
         select(models.Post).where(models.Post.id == post_id)
     )
-    #2. if the post exist, return the post using the template with a sliced title
+
+    #2. extract the post from result
+    post = result.scalars().first()
+
+    #3. if the post exist, return the post using the template with a sliced title
     if post:
         title = post.title[:50]
         return templates.TemplateResponse(
@@ -161,12 +206,13 @@ def get_post_pages(post_id: int, request: Request, db: Annotated[Session, Depend
                 "post": post, "title": title
             }
         )
-    #3. if the post does not exist, return a http 404 exception
+    #4. if the post does not exist, return a http 404 exception
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not Found")
 
 
 # ================API ROUTES(NOT BROWSABLE)==================
-@app.get("/api/posts/{post_id}", response_model=PostResponse)
+# @app.get("/api/posts/{post_id}", response_model=PostResponse)
+@app.get("/api/posts/{post_id}")
 def get_post(post_id: int, db: Annotated[Session, Depends(get_db)]):
     #1. Query the db for the post based on the post_id
     result = db.execute(
@@ -177,11 +223,13 @@ def get_post(post_id: int, db: Annotated[Session, Depends(get_db)]):
 
     #3. return the post
     if post:
-        return post # to return a single post content, remove the response_model=PostResponse
+        return post.content 
+        # to return a single post content, remove the response_model=PostResponse
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not Found")
 
 
 # =================GET API ROUTE(NOT BROWSEABLE)===================
+# fix validatio error here
 @app.get("/api/all_posts", response_model=list[PostResponse])
 def get_all_posts(db: Annotated[Session, Depends(get_db)]):
     #1. Query the db for all post
@@ -199,34 +247,45 @@ def get_all_posts(db: Annotated[Session, Depends(get_db)]):
     status_code=status.HTTP_201_CREATED,
 
 )
-######## fix the error (posts not defined) from (models.User.id == posts.user_id)
-def create_post(new_post: PostCreate, db: Annotated[Session, Depends(get_db)]):
+
+def create_post(post_data: PostCreate, db: Annotated[Session, Depends(get_db)]):
     #1. Query the db to check if there is an existing post with the same id for the user
     result = db.execute(
-        select(models.User).where(models.User.id == new_post.user_id)
+        select(models.Post).where(
+            models.Post.title == post_data.title,
+            models.Post.user_id == post_data.user_id
+        )
     )
     #2. Extract the first post of the user if it exist
-    user = result.scalars().first()
+    post = result.scalars().first()
 
     #3. raise exception if the user is not found
-    if not user:
+    if post:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Post with this title exist already"
         )
 
     #4. Create a new post object
     new_post = models.Post(
-        title=post.title,
-        content=post.content,
-        user_id=post.user_id,
+        title=post_data.title,
+        content=post_data.content,
+        user_id=post_data.user_id,
     )
 
-    # 5. add the post to db
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
-
+    # 5. add the post to db 
+    try:
+        db.add(new_post)
+        db.commit()
+        db.refresh(new_post)
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database failed to create post: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Failed to create post"
+        )
+        
     # 6. return post
     return new_post
     
@@ -245,10 +304,10 @@ def create_post(new_post: PostCreate, db: Annotated[Session, Depends(get_db)]):
     status_code=status.HTTP_201_CREATED,
 )
 
-def create_user(user: UserCreate, db: Annotated[Session, Depends(get_db)]):
+def create_user(new_user: UserCreate, db: Annotated[Session, Depends(get_db)]):
     # 1. check the username if it exists
     result = db.execute(
-        select(models.User).where(models.User.username == user.username)
+        select(models.User).where(models.User.username == new_user.username)
     )
     if result.scalars().first(): # scalars() unpacks the tuple returned in result to a user object
         raise HTTPException(
@@ -256,9 +315,9 @@ def create_user(user: UserCreate, db: Annotated[Session, Depends(get_db)]):
             detail="Username already exists"
         )
 
-    # 2. check for exisiting email and raise errors if they exist, if theyfont create the new user
+    # 2. check for exisiting email and raise errors if they exist, if not dont create the new user
     result = db.execute(
-        select(models.User).where(models.User.email == user.email)
+        select(models.User).where(models.User.email == new_user.email)
     )
 
     if result.scalars().first():
@@ -268,21 +327,26 @@ def create_user(user: UserCreate, db: Annotated[Session, Depends(get_db)]):
         )
 
     # 3. create the actual ORM new_user object.
-    new_user = models.User(
-        username=user.username,
-        email=user.email,
+    user = models.User(
+        username=new_user.username,
+        email=new_user.email,
     )
 
     # 4. Standard ORM save pattern
     # === add the newly created user to the table
-    db.add(new_user)
-    #===persist the newuser to the db======
-    db.commit()
-    #===refresh the db to ensure newuser persist=====
-    db.refresh(new_user)
+    try:
+        db.add(user)
+        #===persist the newuser to the db======
+        db.commit()
+        #===refresh the db to ensure newuser persist=====
+        db.refresh(user)
+    except SQLAlchemyError as e:
+        db.rollback()
+        logger.error(f"Database failed to create {user.username}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Usern not created")
 
     # 5. return the object
-    return new_user
+    return user
 
 # ==================API ROUTE (GET) ======GET USER======================
 # The standard SQLAlchemy ORM read pattern for a single record is
@@ -310,11 +374,11 @@ def get_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
     #3. Validate: if the user does not exist raise exception
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
     #4. return the found user
-        return user  
+    return user  
 
 # ==================API ROUTE {user_id}===post ==================
 # The standard SQLAlchemy ORM read pattern for related records is
@@ -348,7 +412,7 @@ def get_user_posts(user_id: int, db: Annotated[Session, Depends(get_db)]):
     )
 
     #4 . Extract all the post into a list (returns an empty list if the user has no post)
-    posts = posts_result.scalars().all()
+    posts = post_result.scalars().all()
 
     #5. return all posts
     return posts
