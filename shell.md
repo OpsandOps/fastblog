@@ -125,6 +125,45 @@ Second Post
 ...
 Post: Hello FastAPI | By: john
 Post: Second Post | By: john
+
+## fetching all objects (Django's `User.objects.all()` equivalent)
+# The Django equivalent is User.objects.all() or Post.objects.all()
+# In SQLAlchemy, you simply omit the .where() clause to get everything
+
+### Get ALL Users
+>>> all_users = db.execute(select(User)).scalars().all()
+>>> len(all_users)  # like Django's User.objects.count()
+3
+>>> for user in all_users:
+...     print(f"ID: {user.id} | Username: {user.username} | Email: {user.email}")
+...
+ID: 1 | Username: john | Email: john@test.com
+ID: 2 | Username: jane | Email: jane@test.com
+ID: 3 | Username: prospa | Email: prospa@test.com
+
+### Get ALL Posts
+>>> all_posts = db.execute(select(Post)).scalars().all()
+>>> len(all_posts)
+4
+>>> for post in all_posts:
+...     print(f"ID: {post.id} | Title: {post.title} | Author ID: {post.user_id}")
+...
+ID: 1 | Title: Hello FastAPI | Author ID: 1
+ID: 2 | Title: Second Post | Author ID: 1
+ID: 3 | Title: Hello | Author ID: 1
+ID: 4 | Title: Jane's First Post | Author ID: 2
+
+Quick inspection shortcuts
+Dump all users as a list of dictionaries
+>>> [user.__dict__ for user in all_users]
+
+# Dump all users using Pydantic (cleaner, excludes internal SQLAlchemy state)
+>>> [UserResponse.model_validate(user).model_dump() for user in all_users]
+
+# Check if a table is empty
+>>> if not db.execute(select(User)).scalars().first():
+...     print("No users in database")
+
 ```
 *exit shell*
 ``` exit() ```
