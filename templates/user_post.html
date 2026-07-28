@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block page_header %}
+<div class="bg-light border-bottom">
+	<div class="container py-5">
+		<div class="row align-items-center">
+			<div class="col-lg-8 d-flex align-items-center gap-3">
+				<img class="rounded-circle" src="{{ url_for('static', path='profile_pics/' ~ (user.profile_pic or 'default.jpg')) }}" alt="{{ user.username }}'s avatar" width="96" height="96" loading="lazy">
+				<div>
+					<h1 class="display-5 fw-bold mb-1">{{ user.username }}</h1>
+					{% if user.bio %}
+						<p class="text-body-secondary mb-0">{{ user.bio }}</p>
+					{% else %}
+						<p class="text-body-secondary mb-0 fst-italic">This user hasn't written a bio yet.</p>
+					{% endif %}
+					{% if posts is iterable and posts is not string %}
+						<small class="text-body-secondary"><i class="bi bi-journal-text me-1"></i>{{ posts|length }} posts</small>
+					{% else %}
+						<small class="text-body-secondary"><i class="bi bi-journal-text me-1"></i>1 post</small>
+					{% endif %}
+				</div>
+			</div>
+			<div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+				<a href="{{ url_for('home') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back</a>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock page_header %}
+
+{% block content %}
+	<div class="mt-4">
+		{% if posts is iterable and posts is not string %}
+			{% for post in posts %}
+				<article class="content-section p-4 mb-4">
+					<div class="d-flex align-items-start gap-3">
+						<img class="rounded-circle article-img flex-shrink-0" src="{{ url_for('static', path='profile_pics/' ~ (user.profile_pic or 'default.jpg')) }}" alt="{{ user.username }}'s profile picture" width="64" height="64" loading="lazy">
+						<div class="flex-grow-1">
+							<div class="article-metadata mb-2">
+								<div class="d-flex align-items-center gap-2 flex-wrap text-body-secondary">
+									<small><i class="bi bi-clock me-1"></i>{% if post.created_at %}{{ post.created_at.strftime('%B %d, %Y') }}{% else %}{{ post.created_at }}{% endif %}</small>
+									{% if post.updated_at %}
+										<span class="badge bg-info bg-opacity-10 text-info">Updated</span>
+									{% endif %}
+								</div>
+							</div>
+							<h2 class="h5 mb-2"><a class="article-title text-decoration-none" href="{{ url_for('post', post_id=post.id) }}">{{ post.title }}</a></h2>
+							{% if post.content %}
+								<p class="article-content text-body-secondary mb-2">{{ post.content }}</p>
+							{% else %}
+								<p class="article-content text-body-secondary fst-italic mb-2">No content available.</p>
+							{% endif %}
+							<div class="d-flex gap-2 align-items-center">
+								<a href="{{ url_for('post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-book me-1"></i>Read</a>
+								<button class="btn btn-sm btn-outline-secondary"><i class="bi bi-heart me-1"></i>Like</button>
+							</div>
+						</div>
+					</div>
+				</article>
+			{% endfor %}
+		{% elif posts %}
+			{% for post in [posts] %}
+				<article class="content-section p-4 mb-4">
+					<div class="d-flex align-items-start gap-3">
+						<img class="rounded-circle article-img flex-shrink-0" src="{{ url_for('static', path='profile_pics/' ~ (user.profile_pic or 'default.jpg')) }}" alt="{{ user.username }}'s profile picture" width="64" height="64" loading="lazy">
+						<div class="flex-grow-1">
+							<div class="article-metadata mb-2">
+								<div class="d-flex align-items-center gap-2 flex-wrap text-body-secondary">
+									<small><i class="bi bi-clock me-1"></i>{% if post.created_at %}{{ post.created_at.strftime('%B %d, %Y') }}{% else %}{{ post.created_at }}{% endif %}</small>
+									{% if post.updated_at %}
+										<span class="badge bg-info bg-opacity-10 text-info">Updated</span>
+									{% endif %}
+								</div>
+							</div>
+							<h2 class="h5 mb-2"><a class="article-title text-decoration-none" href="{{ url_for('post', post_id=post.id) }}">{{ post.title }}</a></h2>
+							{% if post.content %}
+								<p class="article-content text-body-secondary mb-2">{{ post.content }}</p>
+							{% else %}
+								<p class="article-content text-body-secondary fst-italic mb-2">No content available.</p>
+							{% endif %}
+							<div class="d-flex gap-2 align-items-center">
+								<a href="{{ url_for('post', post_id=post.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-book me-1"></i>Read</a>
+								<button class="btn btn-sm btn-outline-secondary"><i class="bi bi-heart me-1"></i>Like</button>
+							</div>
+						</div>
+					</div>
+				</article>
+			{% endfor %}
+		{% else %}
+			<div class="content-section p-4 text-center text-body-secondary">
+				<i class="bi bi-person-circle display-4 mb-3 opacity-50"></i>
+				<p class="mb-0">No posts yet from {{ user.username }}.</p>
+			</div>
+		{% endif %}
+	</div>
+{% endblock content %}
+

@@ -39,34 +39,6 @@ templates = Jinja2Templates(directory="templates")
 #=======mount a static file for all static files we create==============
 app.mount("/static", StaticFiles(directory="static"), name="static") 
 
-# post_list: list[dict] = [
-#     {   
-#         "id": 1,
-#         "author": "Julien Nagelsman",
-#         "title": "Home away from home",
-#         "content": "This is a serial novel written by a very good author about a Home away from home this is to add some content to the blog",
-#         "created_at": "15th July 2026",
-#         "updated_at": "today"
-#     },
-#     {   
-#         "id": 2,
-#         "author": "Prospa  Ops",
-#         "title": "God is Good",
-#         "content": "A devotional written by the author for daily study and religious content built with fastapi",
-#         "created_at": "20th July 2026",
-#         "updated_at": "today"
-#     },
-#     {
-#         "id": 3,
-#         "author": "Damelson Vincent",
-#         "title": "Power over Fear",
-#         "content": "The chronicle of a developer who never writes but read and debugs, I dont even know what that means here",
-#         "created_at": "22nd July 2026",
-#         "updated_at": "today"
-#     }
-
-# ]
-
 # ========HTTP EXCEPTION HANDLER===============================
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -135,8 +107,9 @@ def general_http_exception_handler(request: Request, exception: StarletteHTTPExc
     )
 
 # ============VALIDATION EXCEPTION HANDLER FOR STARLETTE===========================
+# ==============request validation exception handler==================================
 @app.exception_handler(RequestValidationError)
-def request_validation_exception_handler(request: Request, exception: RequestValidationError):
+async def request_validation_exception_handler(request: Request, exception: RequestValidationError):
     if request.url.path.startswith("/api"):
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -153,6 +126,7 @@ def request_validation_exception_handler(request: Request, exception: RequestVal
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
     )
 
+# ==========response validation exception handler ===================================
 @app.exception_handler(ResponseValidationError)
 async def response_validation_exception_handler(request: Request, exc: ResponseValidationError):
     logger.error(f"Response Validation Error on {request.url.path}: {str(exc.errors())}", exc_info=True)
@@ -210,6 +184,52 @@ def get_post_pages(post_id: int, request: Request, db: Annotated[Session, Depend
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not Found")
 
 
+
+# ======BROWSABLE ROUTE ========("user/{user_id}/posts")====
+#to get all post for a user
+#===============================================================
+
+@app.get(
+    "/users/{user_id}/posts",
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
+    name="users"
+)
+def get_all_user_posts(user_id: int, request: Request, db: Annotated[Session, Depends(get_db)]):
+    # 1. query the database to verify if the user exists
+    result = db.execute(
+        select(models.User).where(models.User.id == user_id)
+    )
+
+    user = result.scalars().all()
+    #2. if the user does not EXIST raise an exception
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    
+    #3. Query the database for all the post belonging to the user
+    post_result = db.execute(
+        select(models.Post).where(models.Post.user_id == user_id)
+    )
+
+    #4 . Extract all the post into a list (returns an empty list if the user has no post)
+    posts = post_result.scalars().first()
+
+    #5. return all posts if the post exist, return the post using the template with a sliced title
+    if posts:
+        title = posts.title[:50]
+        return templates.TemplateResponse(
+            request,
+            "user_post.html",
+            {
+                "posts": posts, "title": title, "user": user
+            }
+        )
+    #4. if the post does not exist, return a http 404 exception
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not Found")
+
 # ================API ROUTES(NOT BROWSABLE)==================
 # @app.get("/api/posts/{post_id}", response_model=PostResponse)
 @app.get("/api/posts/{post_id}")
@@ -249,17 +269,34 @@ def get_all_posts(db: Annotated[Session, Depends(get_db)]):
 )
 
 def create_post(post_data: PostCreate, db: Annotated[Session, Depends(get_db)]):
+    #1. Query for an existing user
+    existing_user = db.execute(
+        select(models.User).where(
+            models.User.id == post_data.user_id
+        )
+    )
+
+    #2. transform to a list
+    existing_user_result = existing_user.scalars().first()
+
+    if not existing_user_result: 
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found. Cannot create a post for a non-existent user."
+        )
+
+
     #1. Query the db to check if there is an existing post with the same id for the user
-    result = db.execute(
+    post_result = db.execute(
         select(models.Post).where(
             models.Post.title == post_data.title,
             models.Post.user_id == post_data.user_id
         )
     )
-    #2. Extract the first post of the user if it exist
-    post = result.scalars().first()
+    #2. Extract the first post from the result
+    post = post_result.scalars().first()
 
-    #3. raise exception if the user is not found
+    #3. raise exception if the post exist
     if post:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -277,10 +314,22 @@ def create_post(post_data: PostCreate, db: Annotated[Session, Depends(get_db)]):
     try:
         db.add(new_post)
         db.commit()
-        db.refresh(new_post)
+        # db.refresh(new_post, attribute_names=['author'])
+        # 6 refetch the post to make sure the user is attached using the .options(selectinload(models.Post.author))
+        result = db.execute(
+            select(models.Post)
+            .options(selectinload(models.Post.author))
+            .where(models.Post.id == new_post.id)
+            )
+
+        new_post = result.scalars().all()
+
     except SQLAlchemyError as e:
+        # rollback to previous db state
         db.rollback()
+        # log the full error context for traceability
         logger.error(f"Database failed to create post: {str(e)}")
+        # raise generic http error 
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Failed to create post"

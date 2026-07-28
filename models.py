@@ -50,6 +50,13 @@ class Post(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC)
     )
+    updated_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True),
+        default=None,
+        nullable=True,
+        onupdate=lambda: datetime.now(UTC)
+    )
+
     author: Mapped[User] = relationship(back_populates="posts")
 
     def __repr__(self):

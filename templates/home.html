@@ -39,8 +39,8 @@
       <article class="content-section p-4 mb-4">
         <div class="d-flex align-items-start gap-3">
           <img class="rounded-circle article-img flex-shrink-0"
-               src="/static/profile_pics/default.jpg"
-               alt="{{ post.author }}'s profile picture"
+               src="{{ url_for('get_all_user_posts' user_id=post.author.id) }}"
+               alt="{{ post.author.username }}'s profile picture"
                width="64"
                height="64"
                loading="lazy">
@@ -48,11 +48,11 @@
             <div class="article-metadata mb-3 pb-2">
               <div class="d-flex align-items-center gap-2 flex-wrap">
                 <a class="fw-semibold text-decoration-none" href="{{ url_for('post', post_id=post.id) }}">
-                  <i class="bi bi-person-circle me-1"></i>{{ post.author }}
+                  <i class="bi bi-person-circle me-1"></i>{{ post.author.username }}
                 </a>
                 <span class="text-body-secondary">•</span>
                 <small class="text-body-secondary">
-                  <i class="bi bi-clock me-1"></i>{{ post.created_at }}
+                  <i class="bi bi-clock me-1"></i>{{ post.created_at.strfttime("%B %b, %Y") }}
                 </small>
                 {% if post.updated_at %}
                   <span class="badge bg-info bg-opacity-10 text-info">
